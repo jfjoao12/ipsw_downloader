@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Downloading
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -40,6 +42,7 @@ data class Device(
     val name: String,
     val identifier: String
 )
+
 
 suspend fun grabAlliPhonesVersions(): List<Device> {
     val url = "https://api.ipsw.me/v4/devices"
@@ -94,10 +97,7 @@ fun AppUI(
     onCheckAndUpdate: () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary   = Color(0xFF0078D7),
-            onPrimary = Color.White
-        )
+        colorScheme = lightColorScheme()
     ) {
         Scaffold(
             topBar = {
@@ -125,25 +125,48 @@ fun AppUI(
                     )
                 }
 
-                Spacer(Modifier.height(24.dp))
 
-                // 2) List of .ipsw files
-                Text("Found ${files.size} IPSW files:")
-                Spacer(Modifier.height(8.dp))
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .background(Color(0xFFF5F5F5))
+
+                Spacer(Modifier.height(24.dp))
+                Row (
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    items(files) { status ->
-                        FileRow(status)
+
+                    CustomCardLayout(
+                        "Files Found",
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(Color(0xFFF5F5F5))
+                        ) {
+                            items(files) { status ->
+                                FileRow(status)
+                            }
+                        }
+                    }
+
+                    CustomCardLayout("Files Downloaded") {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(Color(0xFFF5F5F5))
+                        ) {
+                            items(files) { status ->
+                                FileRow(status)
+                            }
+                        }
                     }
                 }
 
+
                 Spacer(Modifier.height(16.dp))
 
-                // 3) Check & Update button
+
                 Button(
                     onClick = onCheckAndUpdate,
                     modifier = Modifier.fillMaxWidth(),
@@ -164,8 +187,9 @@ fun FileRow(status: IpswFileStatus) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 8.dp, horizontal = 12.dp)
+            .background(color = MaterialTheme.colorScheme.primary),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = extractIdentifierPart(status.file.name),
@@ -220,6 +244,50 @@ fun main() = application {
                 // Then trigger downloads for those where isUpToDate == false.
             }
         )
+    }
+}
+
+@Composable
+fun CustomCardLayout(title: String = "", content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.5f)
+            .padding(16.dp)
+    ){
+        ElevatedCard(
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 28.dp, start = 16.dp, end = 8.dp, bottom = 16.dp),
+            ) {
+                // Content here
+                content()
+            }
+        }
+
+        if(title != ""){
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-12).dp)
+                    .zIndex(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
     }
 }
 
