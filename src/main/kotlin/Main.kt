@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Downloading
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
@@ -26,66 +25,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import java.io.File
-import java.net.URL
+import operations.ApiCalls
+import operations.Device
+import operations.FileInfo
+import operations.IpswFileStatus
+import operations.Operations
 import javax.swing.JFileChooser
 import javax.swing.UIManager
 
-@Serializable
-data class Device(
-    val name: String,
-    val identifier: String
-)
-
-
-suspend fun grabAlliPhonesVersions(): List<Device> {
-    val url = "https://api.ipsw.me/v4/devices"
-
-    val jsonString = withContext(Dispatchers.IO) {
-        URL(url).readText()
-    }
-
-    val json = Json { ignoreUnknownKeys = true }
-
-    val devices: List<Device> = json.decodeFromString(jsonString)
-
-    val filterForIphones = "iPhone*".toRegex()
-
-    val devicesList: MutableList<Device>  = mutableListOf()
-
-    devices.forEach { device ->
-        if(device.name.contains("iPad")){
-            println("> ${device.name} (id: ${device.identifier})")
-
-            devicesList += device
-        }
-    }
-
-    return devicesList
-}
-
-fun extractIdentifierPart(file: String): String {
-    // 1) get just the filename (no path)
-    val name = file
-        .removeSuffix(".ipsw")   // drop extension
-
-    // 2) pull out everything up to the underscore before the version (which starts with a digit)
-    val regex = Regex("^(.*?)(?=_\\d)")
-    val splitName = name.split("_")
-    return regex.find(name)?.groups?.get(1)?.value
-        ?: name  // fallback if the pattern somehow doesn’t match
-}
-
-data class IpswFileStatus(
-    val file: File,
-    var isUpToDate: Boolean? = null  // null = not yet checked
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,8 +74,6 @@ fun AppUI(
                     )
                 }
 
-
-
                 Spacer(Modifier.height(24.dp))
                 Row (
                     modifier = Modifier.fillMaxWidth(),
@@ -139,20 +86,6 @@ fun AppUI(
                     ) {
                         LazyColumn(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .background(Color(0xFFF5F5F5))
-                        ) {
-                            items(files) { status ->
-                                FileRow(status)
-                            }
-                        }
-                    }
-
-                    CustomCardLayout("Files Downloaded") {
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
                                 .fillMaxWidth()
                                 .background(Color(0xFFF5F5F5))
                         ) {
@@ -182,17 +115,18 @@ fun AppUI(
 @Composable
 fun FileRow(status: IpswFileStatus) {
     val fileName = status.file.name
-
+    val operations = Operations()
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 12.dp)
-            .background(color = MaterialTheme.colorScheme.primary),
+            .padding(vertical = 8.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = extractIdentifierPart(status.file.name),
+            text = "ID: ${operations.extractIdentifierPart(fileName).name}" +
+                    "Version: ${
+                        operations.extractIdentifierPart(fileName).version}",
             modifier = Modifier.weight(1f),
         )
 
@@ -208,11 +142,14 @@ fun FileRow(status: IpswFileStatus) {
 fun main() = application {
     var folderPath by remember { mutableStateOf("") }
     var files by remember { mutableStateOf(listOf<IpswFileStatus>()) }
+    var filesInfo by remember { mutableStateOf(listOf<FileInfo>()) }
     var devices by remember { mutableStateOf(listOf<Device>()) }
     var icon by remember {  mutableStateOf(Icons.Filled.Sync) }
 
+    var operations = Operations()
+
     GlobalScope.launch {
-        grabAlliPhonesVersions()
+        ApiCalls().grabAlliPhonesVersions()
     }
 
     Window(onCloseRequest = ::exitApplication, title = "IPSW Manager") {
@@ -239,11 +176,14 @@ fun main() = application {
                 }
             },
             onCheckAndUpdate = {
-                // TODO: Loop through 'files', check versions via your API
-                // and update each IpswFileStatus.isUpToDate accordingly.
-                // Then trigger downloads for those where isUpToDate == false.
+                files.forEach { file ->
+                    val fileInfo = operations.extractIdentifierPart(file.file.name)
+                    filesInfo += fileInfo
+                }
+
             }
         )
+
     }
 }
 
