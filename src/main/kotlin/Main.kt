@@ -19,14 +19,18 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import layout.CustomCardLayout
 import operations.ApiCalls
 import operations.Device
 import operations.FileInfo
@@ -117,11 +121,13 @@ fun FileRow(status: IpswFileStatus) {
     val fileName = status.file.name
     val operations = Operations()
 
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = "ID: ${operations.extractIdentifierPart(fileName).name}" +
@@ -130,10 +136,17 @@ fun FileRow(status: IpswFileStatus) {
             modifier = Modifier.weight(1f),
         )
 
-        when (status.isUpToDate) {
-            true -> Icon(Icons.Default.CheckCircle, "Up-to-date", tint = Color(0xFF4CAF50))
-            false -> Icon(Icons.Default.Warning, "Needs update", tint = Color(0xFFF44336))
-            null -> Text("–")
+        Text(
+            text = fileName,
+        )
+
+        Box{
+
+            when (status.isUpToDate) {
+                true -> Icon(Icons.Default.CheckCircle, "Up-to-date", tint = Color(0xFF4CAF50))
+                false -> Icon(Icons.Default.Warning, "Needs update", tint = Color(0xFFF44336))
+                null -> Text("–")
+            }
         }
     }
 }
@@ -176,58 +189,19 @@ fun main() = application {
                 }
             },
             onCheckAndUpdate = {
+//                files.forEach { file ->
+//                    val fileInfo = operations.extractIdentifierPart(file.file.name)
+//                    filesInfo += fileInfo
+//                }
                 files.forEach { file ->
-                    val fileInfo = operations.extractIdentifierPart(file.file.name)
-                    filesInfo += fileInfo
+                    coroutineScope(Dispatchers.IO) {
+                        file.isUpToDate = operations.isUpdated(file.file.name)
+
+                    }
                 }
 
             }
         )
-
-    }
-}
-
-@Composable
-fun CustomCardLayout(title: String = "", content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(0.5f)
-            .padding(16.dp)
-    ){
-        ElevatedCard(
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(4.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 28.dp, start = 16.dp, end = 8.dp, bottom = 16.dp),
-            ) {
-                // Content here
-                content()
-            }
-        }
-
-        if(title != ""){
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = (-12).dp)
-                    .zIndex(1f)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-
     }
 }
 

@@ -23,6 +23,7 @@ class ApiCalls {
 
         val devicesList: MutableList<Device>  = mutableListOf()
 
+        // Reducing the records for faster search
         devices.forEach { device ->
             if(device.name.contains("iPad")){
                 println("> ${device.name} (id: ${device.identifier})")
@@ -42,7 +43,7 @@ class ApiCalls {
         return devicesList
     }
 
-    suspend fun grabLatestIOSVersion(identifier: String): LatestVersion {
+    suspend fun grabLatestIOSVersion(identifier: String): DeviceResponse? {
         val url = "https://api.ipsw.me/v4/device/${identifier}?type=ipsw"
 
         val jsonString = withContext(Dispatchers.IO) {
@@ -51,9 +52,13 @@ class ApiCalls {
 
         val json = Json { ignoreUnknownKeys = true }
 
-        val latestVersion: List<LatestVersion> = json.decodeFromString(jsonString)
+        val latestVersion: DeviceResponse? = try{
+            json.decodeFromString(jsonString)
+        } catch(e: NullPointerException) {
+            null
+        }
 
-
+        return latestVersion
 
     }
 }
