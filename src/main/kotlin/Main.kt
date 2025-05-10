@@ -25,11 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import layout.CustomCardLayout
 import operations.ApiCalls
 import operations.Device
@@ -158,6 +160,7 @@ fun main() = application {
     var filesInfo by remember { mutableStateOf(listOf<FileInfo>()) }
     var devices by remember { mutableStateOf(listOf<Device>()) }
     var icon by remember {  mutableStateOf(Icons.Filled.Sync) }
+    val ioScope = CoroutineScope(Dispatchers.IO)
 
     var operations = Operations()
 
@@ -193,10 +196,19 @@ fun main() = application {
 //                    val fileInfo = operations.extractIdentifierPart(file.file.name)
 //                    filesInfo += fileInfo
 //                }
-                files.forEach { file ->
-                    coroutineScope(Dispatchers.IO) {
-                        file.isUpToDate = operations.isUpdated(file.file.name)
+                ioScope.launch {
+                    // 2) call your suspend function
+                    val operations = Operations()
 
+                    // 3) switch back to Main (Compose) thread to update state
+                    withContext(Dispatchers.Main) {
+
+                        files.forEach { (file) ->
+
+                        }
+                        files = files.mapIndexed { idx, f ->
+                            f.copy(isUpToDate = operations.isUpdated(f.file.name))
+                        }
                     }
                 }
 

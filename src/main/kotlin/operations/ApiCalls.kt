@@ -59,6 +59,27 @@ class ApiCalls {
         }
 
         return latestVersion
+    }
 
+    suspend fun fetchiPhoneIdentifierFromVersion(
+        version: String,
+        fileName: String
+    ): String {
+        val url = "https://api.ipsw.me/v4/ipsw/$version"
+        val jsonString = withContext(Dispatchers.IO) {
+            URL(url).readText()
+        }
+
+        // 1) Decode into a List<Firmware>
+        val firmwares: List<Firmware> = Json { ignoreUnknownKeys = true }
+            .decodeFromString(jsonString)
+
+        // 2) Find your matching entry by URL (or just take the first one)
+        val match = firmwares.firstOrNull { fw ->
+            fw.url.substringAfterLast("/") == fileName
+        } ?: error("No firmware entry matching $fileName")
+
+        // 3) Return whatever you need
+        return match.identifier
     }
 }

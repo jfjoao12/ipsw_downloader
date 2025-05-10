@@ -21,7 +21,7 @@ import androidx.compose.ui.zIndex
 fun CustomCardLayout(title: String = "", content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
-            .fillMaxWidth(0.5f)
+            .fillMaxWidth()
             .padding(16.dp)
     ){
         ElevatedCard(
