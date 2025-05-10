@@ -1,7 +1,6 @@
 package operations
 
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlin.math.log
 
 /***
  *  ----- Main goal: Check if files are updated or not -----
@@ -19,35 +18,50 @@ import kotlin.math.log
 
 
 class Operations {
+    private val deviceCache = mutableMapOf<String, Device>()
+    private val api = ApiCalls()
 
 
-    fun extractIdentifierPart(file: String): FileInfo {
+
+    suspend fun extractiPhoneInfo(file: String): FileInfo {
         val name = file
-            .removeSuffix(".ipsw").split("_")
+            .removeSuffix("_Restore.ipsw").split("_")
 
-        val splitName = name[0]
-        val splitVersion = name[1]
+        val fileBuildId = name[name.size - 1]
+        val fileVersion = name[name.size - 2]
+        var identifier = name[0]
 
-        if (name[0] ==  "iPhone"){
-            // do logic here to grab the phone info by buildId
+        if(identifier.count() >= 10) {
+            val strippedIdentifier = identifier.split(",")
+            identifier = strippedIdentifier[0] + "," + strippedIdentifier[1]
         }
 
+        if (identifier == "iPhone") {
+            identifier = ApiCalls().fetchiPhoneIdentifierFromVersion(fileVersion, file)
+
+        }
+
+
         val fileInfo = FileInfo(
-            name = splitName,
-            version = splitVersion,
+            identifier = identifier,
+            version = fileVersion,
         )
         return fileInfo
     }
 
-    /*
-       Does string manipulation to retrieve the identifier from the
-       file name (iPhone10,3) then calls api with that. Retrieves iOS
-       version and compares with 1st record of JSON array. If iOS version
-       is the same, then true, false otherwise.
-     */
+    suspend fun fetchModelName(){
+
+    }
+
+    /**
+      * Does string manipulation to retrieve the identifier from the
+      * file name (iPhone10,3) then calls api with that. Retrieves iOS
+      * version and compares with 1st record of JSON array. If iOS version
+      * is the same, then true, false otherwise.
+     **/
     @OptIn(DelicateCoroutinesApi::class)
-    suspend fun isUpdated(fileName: String): Boolean {
-        val isUpdated = false
+    suspend fun buildDevice(fileName: String): Device {
+        var isUpdated = false
 
         val name = fileName
             .removeSuffix("_Restore.ipsw").split("_")
@@ -79,7 +93,25 @@ class Operations {
             latestVersion = "error"
         }
 
-        return fileVersion == latestVersion
+        if (fileVersion == latestVersion) {
+            isUpdated = true
+        }
+
+        val apiDevice = ApiDevice(
+            name = deviceResponse!!.name,
+            identifier = deviceResponse.identifier,
+            firmwares = deviceResponse.firmwares,
+        )
+
+        val device = Device(
+            apiDevice = apiDevice,
+            currentVersion= fileVersion,
+            latestVersion = latestVersion ?: "",
+            isUpToDate= isUpdated,
+        )
+
+        return device
+
     }
 
     fun version(fileName: String): String {

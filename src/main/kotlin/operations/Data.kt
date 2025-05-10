@@ -6,13 +6,13 @@ import java.io.File
 
 // All devices pulled from API
 @Serializable
-data class Device(
+data class DeviceNameID(
     val name: String,
     val identifier: String
 )
 
 data class FileInfo(
-    val name: String,
+    val identifier: String,
     val version: String
 )
 
@@ -30,7 +30,7 @@ data class LatestVersion(
 
 
 @Serializable
-data class DeviceResponse(
+data class ApiDevice(
     val name: String,
     val identifier: String,
     val firmwares: List<Firmware>
@@ -40,9 +40,17 @@ data class DeviceResponse(
 data class Firmware(
     val identifier: String,
     val version: String,
-    @SerialName("buildid")      val buildId: String,
+    @SerialName("buildid")
+    val buildId: String,
     val url: String,
     val signed: Boolean,
     // add other fields you care about…
+)
+
+data class Device(
+    val apiDevice: ApiDevice,
+    val currentVersion: String,
+    val latestVersion: String,
+    val isUpToDate: Boolean,
 )
 

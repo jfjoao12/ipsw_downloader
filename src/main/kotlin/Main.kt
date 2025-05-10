@@ -12,11 +12,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.ModeStandby
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
@@ -24,20 +23,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import layout.CustomCardLayout
-import operations.ApiCalls
 import operations.Device
 import operations.FileInfo
 import operations.IpswFileStatus
 import operations.Operations
+import java.io.File
+import java.util.prefs.Preferences
 import javax.swing.JFileChooser
 import javax.swing.UIManager
 
@@ -48,6 +45,7 @@ import javax.swing.UIManager
 fun AppUI(
     folderPath: String,
     files: List<IpswFileStatus>,
+    isLoading: Boolean,
     onSelectFolder: () -> Unit,
     onCheckAndUpdate: () -> Unit
 ) {
@@ -95,23 +93,33 @@ fun AppUI(
                                 .fillMaxWidth()
                                 .background(Color(0xFFF5F5F5))
                         ) {
-                            items(files) { status ->
-                                FileRow(status)
+                            if (files.isNotEmpty()) {
+                                items(files) { status ->
+                                    FileRow(status)
+                                }
+                            } else {
+                                item {
+                                    Text("No files found")
+                                }
                             }
                         }
                     }
                 }
 
 
-                Spacer(Modifier.height(16.dp))
-
-
-                Button(
-                    onClick = onCheckAndUpdate,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0078D7))
-                ) {
-                    Text("Check & Update", color = Color.White)
+                Spacer(
+                    Modifier.height(16.dp)
+                )
+                if (isLoading){
+                    CircularProgressIndicator()
+                } else {
+                    Button(
+                        onClick = onCheckAndUpdate,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0078D7))
+                    ) {
+                        Text("Check & Update", color = Color.White)
+                    }
                 }
             }
         }
@@ -119,9 +127,15 @@ fun AppUI(
 }
 
 @Composable
-fun FileRow(status: IpswFileStatus) {
-    val fileName = status.file.name
+fun FileRow(device: IpswFileStatus) {
+    val fileName = device.file.name
     val operations = Operations()
+
+    var deviceInfo: Device? by remember { mutableStateOf<Device?>(null) }
+
+    LaunchedEffect(device.file) {
+        deviceInfo = operations.buildDevice(device.file.name)
+    }
 
 
     Row(
@@ -131,10 +145,10 @@ fun FileRow(status: IpswFileStatus) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+
+
         Text(
-            text = "ID: ${operations.extractIdentifierPart(fileName).name}" +
-                    "Version: ${
-                        operations.extractIdentifierPart(fileName).version}",
+            text = ("${deviceInfo?.apiDevice?.name} - ${deviceInfo?.currentVersion} > ${deviceInfo?.latestVersion}"),
             modifier = Modifier.weight(1f),
         )
 
@@ -142,12 +156,13 @@ fun FileRow(status: IpswFileStatus) {
             text = fileName,
         )
 
+
         Box{
 
-            when (status.isUpToDate) {
+            when (device.isUpToDate) {
                 true -> Icon(Icons.Default.CheckCircle, "Up-to-date", tint = Color(0xFF4CAF50))
                 false -> Icon(Icons.Default.Warning, "Needs update", tint = Color(0xFFF44336))
-                null -> Text("–")
+                null -> Icon(Icons.Default.ModeStandby, "Not checked", tint = Color(0xFFF44336))
             }
         }
     }
@@ -155,23 +170,41 @@ fun FileRow(status: IpswFileStatus) {
 
 @OptIn(DelicateCoroutinesApi::class)
 fun main() = application {
-    var folderPath by remember { mutableStateOf("") }
-    var files by remember { mutableStateOf(listOf<IpswFileStatus>()) }
-    var filesInfo by remember { mutableStateOf(listOf<FileInfo>()) }
-    var devices by remember { mutableStateOf(listOf<Device>()) }
-    var icon by remember {  mutableStateOf(Icons.Filled.Sync) }
+
+    val prefs   = Preferences.userRoot().node("com.example.ipswdownloader")
+    val lastPath= prefs.get("lastFolderPath", "")
     val ioScope = CoroutineScope(Dispatchers.IO)
 
-    var operations = Operations()
+    var isLoading by remember { mutableStateOf(false) }
 
-    GlobalScope.launch {
-        ApiCalls().grabAlliPhonesVersions()
-    }
+//    GlobalScope.launch {
+//        ApiCalls().fetchDevices()
+//    }
 
-    Window(onCloseRequest = ::exitApplication, title = "IPSW Manager") {
+    Window(
+        onCloseRequest = ::exitApplication,
+        title = "IPSW Manager"
+    ) {
+        var folderPath by remember { mutableStateOf(lastPath) }
+        var files      by remember { mutableStateOf(listOf<IpswFileStatus>()) }
+
+        LaunchedEffect(folderPath) {
+            if (folderPath.isNotBlank()) {
+                val dir = File(folderPath)
+                files = if (dir.exists() && dir.isDirectory) {
+                    dir.listFiles { f -> f.extension.equals("ipsw", ignoreCase = true) }
+                        .orEmpty()
+                        .map { IpswFileStatus(it) }
+                } else {
+                    emptyList()
+                }
+            }
+        }
+
         AppUI(
             folderPath = folderPath,
             files = files,
+            isLoading =  isLoading,
             onSelectFolder = {
                 try {
                     UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
@@ -183,35 +216,35 @@ fun main() = application {
                 }
 
                 if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                    val folder = chooser.selectedFile
-                    folderPath = folder.absolutePath
-                    files = folder
+
+                    folderPath = chooser.selectedFile.absolutePath
+
+                    // *** Persist immediately ***
+                    prefs.put("lastFolderPath", folderPath)
+
+                    // refresh file list
+                    files = chooser.selectedFile
                         .listFiles { f -> f.extension.equals("ipsw", ignoreCase = true) }
                         .orEmpty()
                         .map { IpswFileStatus(it) }
                 }
             },
             onCheckAndUpdate = {
-//                files.forEach { file ->
-//                    val fileInfo = operations.extractIdentifierPart(file.file.name)
-//                    filesInfo += fileInfo
-//                }
                 ioScope.launch {
-                    // 2) call your suspend function
+                    isLoading = true
+
                     val operations = Operations()
 
-                    // 3) switch back to Main (Compose) thread to update state
                     withContext(Dispatchers.Main) {
 
-                        files.forEach { (file) ->
+                        val updatedList = files.map { file ->
+                            file.copy(isUpToDate = operations.buildDevice(file.file.name).isUpToDate)
+                        }
 
-                        }
-                        files = files.mapIndexed { idx, f ->
-                            f.copy(isUpToDate = operations.isUpdated(f.file.name))
-                        }
+                        files = updatedList
+                        isLoading = false
                     }
                 }
-
             }
         )
     }

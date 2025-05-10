@@ -8,7 +8,7 @@ import kotlin.collections.forEach
 
 class ApiCalls {
 
-    suspend fun grabAlliPhonesVersions(): List<Device> {
+    suspend fun fetchDevices(): List<DeviceNameID> {
         val url = "https://api.ipsw.me/v4/devices"
 
         val jsonString = withContext(Dispatchers.IO) {
@@ -17,11 +17,11 @@ class ApiCalls {
 
         val json = Json { ignoreUnknownKeys = true }
 
-        val devices: List<Device> = json.decodeFromString(jsonString)
+        val devices: List<DeviceNameID> = json.decodeFromString(jsonString)
 
         val filterForIphones = "iPhone*".toRegex()
 
-        val devicesList: MutableList<Device>  = mutableListOf()
+        val devicesList: MutableList<DeviceNameID>  = mutableListOf()
 
         // Reducing the records for faster search
         devices.forEach { device ->
@@ -43,7 +43,8 @@ class ApiCalls {
         return devicesList
     }
 
-    suspend fun grabLatestIOSVersion(identifier: String): DeviceResponse? {
+
+    suspend fun grabLatestIOSVersion(identifier: String): ApiDevice? {
         val url = "https://api.ipsw.me/v4/device/${identifier}?type=ipsw"
 
         val jsonString = withContext(Dispatchers.IO) {
@@ -52,7 +53,7 @@ class ApiCalls {
 
         val json = Json { ignoreUnknownKeys = true }
 
-        val latestVersion: DeviceResponse? = try{
+        val latestVersion: ApiDevice? = try{
             json.decodeFromString(jsonString)
         } catch(e: NullPointerException) {
             null
@@ -74,7 +75,7 @@ class ApiCalls {
         val firmwares: List<Firmware> = Json { ignoreUnknownKeys = true }
             .decodeFromString(jsonString)
 
-        // 2) Find your matching entry by URL (or just take the first one)
+        // 2) Find matching entry by URL (or just take the first one)
         val match = firmwares.firstOrNull { fw ->
             fw.url.substringAfterLast("/") == fileName
         } ?: error("No firmware entry matching $fileName")
