@@ -1,3 +1,4 @@
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.material.Button
@@ -35,13 +36,23 @@ import javax.swing.UIManager
 import androidx.compose.material.IconButton
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color.Companion.Blue
+import androidx.compose.ui.graphics.Color.Companion.Cyan
+import androidx.compose.ui.graphics.Color.Companion.Magenta
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import operations.FileRow
 
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalComposeUiApi::class)
 @Composable
 @Preview
 fun AppUI(
@@ -52,6 +63,11 @@ fun AppUI(
     onCheckAndUpdate: () -> Unit,
 
 ) {
+    // To handle description of icons
+    var expandFolder by remember {mutableStateOf(false)}
+    var expandRefresh by remember {mutableStateOf(false)}
+    var expandDownload by remember {mutableStateOf(false)}
+
     MaterialTheme(
         colorScheme = lightColorScheme()
     ) {
@@ -66,63 +82,108 @@ fun AppUI(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
             ) {
-                // 1) Folder picker row
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = onSelectFolder) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = "Select Folder")
-                        Spacer(Modifier.width(8.dp))
-                        Text("Select Folder")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Text(
+                            text = "Download & Update",
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
-                    Spacer(Modifier.width(16.dp))
-                    Text(
-                        text = folderPath.ifBlank { "No folder selected" },
-                    )
-                }
 
-                Spacer(Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement =  Arrangement.End,
+                    ) {
+
+                        AnimatedVisibility(expandFolder) {
+                            Text(
+                                text = "Select folder",
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .onPointerEvent(PointerEventType.Enter){
+                                    expandFolder = true
+                                }
+                                .onPointerEvent(PointerEventType.Exit) {
+                                    expandFolder = false
+                                },
+                            onClick = onSelectFolder
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = "Select Folder")
+                        }
+                        AnimatedVisibility(expandRefresh) {
+                            Text(
+                                text = "Refresh",
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .onPointerEvent(PointerEventType.Enter){
+                                    expandRefresh = true
+                                }
+                                .onPointerEvent(PointerEventType.Exit) {
+                                    expandRefresh = false
+                                },
+                            onClick = onCheckAndUpdate,
+                            enabled = !isLoading,
+                            content = {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Check Folder")
+                            },
+                        )
+                        AnimatedVisibility(expandDownload) {
+                            Text(
+                                text = "Download",
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .onPointerEvent(PointerEventType.Enter){
+                                    expandDownload = true
+                                }
+                                .onPointerEvent(PointerEventType.Exit) {
+                                    expandDownload = false
+                                },
+                            onClick = onCheckAndUpdate,
+                            enabled = !isLoading,
+                            content = {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Download Files")
+                            },
+                        )
+//                    Button(onClick = onSelectFolder) {
+//                        Icon(Icons.Default.FolderOpen, contentDescription = "Select Folder")
+//                        Spacer(Modifier.width(8.dp))
+//                        Text("Select Folder")
+//                    }
+//                    Spacer(Modifier.width(16.dp))
+//                    Text(
+//                        text = folderPath.ifBlank { "No folder selected" },
+//                    )
+                    }
+                }
                 Row (
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
 
-                    CustomCardLayout(
-                        "Files Found",
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-
-                        ){
-
-
-                            Row(
-                                horizontalArrangement = Arrangement.End,
-                            ) {
-                                IconButton(
-                                    onClick = onCheckAndUpdate,
-                                    enabled = !isLoading,
-                                    content = {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Check Folder")
-                                    },
-                                )
-                                IconButton(
-                                    onClick = onCheckAndUpdate,
-                                    enabled = !isLoading,
-                                    content = {
-                                        Icon(
-                                            imageVector = Icons.Default.Download,
-                                            contentDescription = "Check Folder")
-                                    },
-                                )
-
-                            }
-                        }
-
+                    CustomCardLayout {
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth(),
@@ -144,11 +205,6 @@ fun AppUI(
                         }
                     }
                 }
-
-
-                Spacer(
-                    Modifier.height(16.dp)
-                )
                 if (isLoading){
                     CircularProgressIndicator()
                 } else {
@@ -181,10 +237,6 @@ fun main() = application {
         position = WindowPosition.Aligned(Alignment.Center),
         size     = DpSize(width = 800.dp, height = 600.dp)
     )
-
-//    GlobalScope.launch {
-//        ApiCalls().fetchDevices()
-//    }
 
     Window(
         onCloseRequest = ::exitApplication,

@@ -22,7 +22,7 @@ fun CustomCardLayout(title: String = "", content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp)
     ){
         ElevatedCard(
             shape = RoundedCornerShape(12.dp),
